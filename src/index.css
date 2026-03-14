@@ -5,8 +5,7 @@
   --color-primary-dark: #2563eb;
   --color-sepia-bg: #f4ecd8;
   --color-sepia-text: #5c4b37;
-  --color-word-highlight: rgba(255, 213, 79, 0.25);
-  --color-word-underline: rgba(255, 152, 0, 0.4);
+
 }
 
 html, body, #root {
@@ -52,15 +51,6 @@ html, body, #root {
 /* PDF text layer - native pdfjs spans must be selectable */
 .pdf-text-span {
   cursor: text;
-}
-
-/* Word highlight overlay spans (injected by word highlighter) */
-.word-highlight-overlay {
-  position: absolute;
-  pointer-events: none;
-  border-radius: 2px;
-  background-color: var(--color-word-highlight);
-  border-bottom: 1px solid var(--color-word-underline);
 }
 
 /* Search highlight */

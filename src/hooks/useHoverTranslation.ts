@@ -10,11 +10,17 @@ interface HoverState {
   y: number;
 }
 
-function getWordAtPoint(x: number, y: number): string | null {
+// Global frontend translation cache (survives component re-renders)
+const translationCache = new Map<string, string>();
+
+function getWordAndRect(
+  clientX: number,
+  clientY: number,
+): { word: string; rect: DOMRect } | null {
   let range: Range | null = null;
 
   if (document.caretRangeFromPoint) {
-    range = document.caretRangeFromPoint(x, y);
+    range = document.caretRangeFromPoint(clientX, clientY);
   }
 
   if (!range) return null;
@@ -37,7 +43,20 @@ function getWordAtPoint(x: number, y: number): string | null {
   const word = text.slice(start, end).trim();
   if (word.length < 2) return null;
 
-  return word;
+  // Get the word's bounding rect for tooltip positioning
+  try {
+    const wordRange = document.createRange();
+    wordRange.setStart(node, start);
+    wordRange.setEnd(node, end);
+    const rects = wordRange.getClientRects();
+    if (rects.length > 0) {
+      return { word, rect: rects[0] };
+    }
+  } catch {
+    // fall through
+  }
+
+  return null;
 }
 
 export function useHoverTranslation() {
@@ -46,20 +65,20 @@ export function useHoverTranslation() {
   });
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentWord = useRef('');
-  const lastPos = useRef({ x: 0, y: 0 });
+  const wordRectRef = useRef<DOMRect | null>(null);
   const tooltipHovered = useRef(false);
   const config = useSettingsStore(s => s.config);
   const delay = config?.general.hover_delay_ms ?? 2000;
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    // Don't dismiss if user is hovering over the tooltip itself
     if (tooltipHovered.current) return;
 
-    const word = getWordAtPoint(e.clientX, e.clientY);
+    const result = getWordAndRect(e.clientX, e.clientY);
 
-    if (!word) {
+    if (!result) {
       if (currentWord.current) {
         currentWord.current = '';
+        wordRectRef.current = null;
         if (timerRef.current) {
           clearTimeout(timerRef.current);
           timerRef.current = null;
@@ -69,36 +88,38 @@ export function useHoverTranslation() {
       return;
     }
 
-    if (word === currentWord.current) return;
+    if (result.word === currentWord.current) return;
 
-    currentWord.current = word;
-    lastPos.current = { x: e.clientX, y: e.clientY };
+    currentWord.current = result.word;
+    wordRectRef.current = result.rect;
     setHover(h => ({ ...h, visible: false }));
 
     if (timerRef.current) clearTimeout(timerRef.current);
 
     timerRef.current = setTimeout(async () => {
-      if (currentWord.current !== word) return;
+      const word = currentWord.current;
+      const rect = wordRectRef.current;
+      if (!word || !rect) return;
 
-      // Show tooltip with "translating..." first
-      setHover({
-        visible: true,
-        word,
-        translation: 'translating...',
-        x: lastPos.current.x,
-        y: lastPos.current.y - 10,
-      });
+      // Position: centered above the word
+      const posX = rect.left + rect.width / 2;
+      const posY = rect.top;
+
+      // Check frontend cache first
+      const cached = translationCache.get(word.toLowerCase());
+      if (cached) {
+        setHover({ visible: true, word, translation: cached, x: posX, y: posY });
+        return;
+      }
+
+      setHover({ visible: true, word, translation: 'translating...', x: posX, y: posY });
 
       try {
-        const result = await translateWord(word);
+        const res = await translateWord(word);
+        // Cache the result
+        translationCache.set(word.toLowerCase(), res.translation);
         if (currentWord.current === word) {
-          setHover({
-            visible: true,
-            word: result.word,
-            translation: result.translation,
-            x: lastPos.current.x,
-            y: lastPos.current.y - 10,
-          });
+          setHover({ visible: true, word: res.word, translation: res.translation, x: posX, y: posY });
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -113,6 +134,7 @@ export function useHoverTranslation() {
   const dismiss = useCallback(() => {
     setHover(h => ({ ...h, visible: false }));
     currentWord.current = '';
+    wordRectRef.current = null;
     tooltipHovered.current = false;
   }, []);
 
@@ -122,11 +144,11 @@ export function useHoverTranslation() {
 
   const onTooltipLeave = useCallback(() => {
     tooltipHovered.current = false;
-    // Dismiss after a short delay so user can re-enter
     setTimeout(() => {
       if (!tooltipHovered.current) {
         setHover(h => ({ ...h, visible: false }));
         currentWord.current = '';
+        wordRectRef.current = null;
       }
     }, 300);
   }, []);

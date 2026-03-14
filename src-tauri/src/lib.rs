@@ -25,11 +25,6 @@ pub fn run() {
                 app.manage(Arc::new(state));
             });
 
-            // Open devtools in all builds for debugging
-            if let Some(window) = app.get_webview_window("main") {
-                window.open_devtools();
-            }
-
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

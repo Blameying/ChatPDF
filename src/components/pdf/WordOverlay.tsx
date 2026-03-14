@@ -10,6 +10,7 @@ interface WordOverlayProps {
 interface WordMatch {
   word: DifficultWord;
   rects: { x: number; y: number; width: number; height: number }[];
+  lineSpacing: number; // distance from this line's top to next line's top
 }
 
 export function WordOverlay({ pageNumber, containerRef, scale }: WordOverlayProps) {
@@ -24,7 +25,6 @@ export function WordOverlay({ pageNumber, containerRef, scale }: WordOverlayProp
       return;
     }
 
-    // Debounce to wait for text layer to render
     const scanId = ++scanRef.current;
     const timer = setTimeout(() => {
       if (scanRef.current !== scanId) return;
@@ -36,6 +36,32 @@ export function WordOverlay({ pageNumber, containerRef, scale }: WordOverlayProp
       if (spans.length === 0) return;
 
       const containerRect = container.getBoundingClientRect();
+
+      // Collect all distinct line top-positions (dedupe within 3px)
+      const lineTopsRaw: number[] = [];
+      for (const span of spans) {
+        const r = span.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) continue;
+        lineTopsRaw.push(r.top - containerRect.top);
+      }
+      lineTopsRaw.sort((a, b) => a - b);
+
+      const lineTops: number[] = [];
+      for (const t of lineTopsRaw) {
+        if (lineTops.length === 0 || t - lineTops[lineTops.length - 1] > 3) {
+          lineTops.push(t);
+        }
+      }
+
+      // Helper: find spacing from this line's top to next line's top
+      const findLineSpacing = (lineTop: number): number => {
+        for (const t of lineTops) {
+          if (t > lineTop + 3) return t - lineTop;
+        }
+        return 0; // last line on page
+      };
+
+      // Scan words
       const found: WordMatch[] = [];
       const seenWords = new Set<string>();
 
@@ -53,12 +79,10 @@ export function WordOverlay({ pageNumber, containerRef, scale }: WordOverlayProp
             if (idx === -1) break;
             searchStart = idx + wordLower.length;
 
-            // Check word boundaries
             const before = idx > 0 ? textLower[idx - 1] : ' ';
             const after = idx + wordLower.length < textLower.length ? textLower[idx + wordLower.length] : ' ';
             if (/\w/.test(before) || /\w/.test(after)) continue;
 
-            // Get the position using Range
             const textNode = span.firstChild;
             if (!textNode || textNode.nodeType !== Node.TEXT_NODE) continue;
 
@@ -80,7 +104,9 @@ export function WordOverlay({ pageNumber, containerRef, scale }: WordOverlayProp
               }
 
               if (matchRects.length > 0 && !seenWords.has(wordLower)) {
-                found.push({ word: dw, rects: matchRects });
+                const firstRect = matchRects[0];
+                const lineSpacing = findLineSpacing(firstRect.y);
+                found.push({ word: dw, rects: matchRects, lineSpacing });
                 seenWords.add(wordLower);
               }
             } catch {
@@ -101,8 +127,22 @@ export function WordOverlay({ pageNumber, containerRef, scale }: WordOverlayProp
   return (
     <>
       {matches.map((m, mi) => {
-        // Show underline on all rects, translation badge on the last rect
         const lastRect = m.rects[m.rects.length - 1];
+        if (!lastRect) return null;
+
+        // Font size: use the gap between lineSpacing and text height.
+        // lineSpacing = distance between tops of consecutive lines
+        // textHeight = the word rect's height
+        // available = lineSpacing - textHeight (the actual leading)
+        // If lineSpacing is 0 (last line), fall back to textHeight * 0.4
+        const textHeight = lastRect.height;
+        const leading = m.lineSpacing > 0 ? m.lineSpacing - textHeight : 0;
+        // Use 80% of leading, but fall back to a fraction of text height if leading is tiny
+        const fontSize = leading > 4 ? Math.min(leading * 0.8, textHeight * 0.55)
+                                     : textHeight * 0.4;
+        // Don't render if absurdly small
+        if (fontSize < 3) return null;
+
         return (
           <div key={`wm-${mi}`}>
             {/* Underline */}
@@ -114,35 +154,33 @@ export function WordOverlay({ pageNumber, containerRef, scale }: WordOverlayProp
                   left: rect.x,
                   top: rect.y + rect.height - 1,
                   width: rect.width,
-                  height: 2,
+                  height: 1,
                   backgroundColor: 'rgba(255, 152, 0, 0.6)',
                   pointerEvents: 'none',
                   zIndex: 3,
                 }}
               />
             ))}
-            {/* Translation badge */}
-            {lastRect && (
-              <div
-                style={{
-                  position: 'absolute',
-                  left: lastRect.x + lastRect.width + 3,
-                  top: lastRect.y,
-                  fontSize: `${Math.max(9, 10 * scale)}px`,
-                  lineHeight: '1.2',
-                  color: 'rgba(255, 100, 0, 0.85)',
-                  fontWeight: 500,
-                  pointerEvents: 'none',
-                  zIndex: 3,
-                  whiteSpace: 'nowrap',
-                  maxWidth: 120,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {m.word.translation}
-              </div>
-            )}
+            {/* Translation: below the underline, within the leading space */}
+            <div
+              style={{
+                position: 'absolute',
+                left: lastRect.x,
+                top: lastRect.y + lastRect.height + 1,
+                fontSize: `${fontSize}px`,
+                lineHeight: '1',
+                color: 'rgba(255, 100, 0, 0.7)',
+                fontWeight: 500,
+                pointerEvents: 'none',
+                zIndex: 3,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                maxWidth: Math.max(lastRect.width * 4, 100 * scale),
+              }}
+            >
+              {m.word.translation}
+            </div>
           </div>
         );
       })}

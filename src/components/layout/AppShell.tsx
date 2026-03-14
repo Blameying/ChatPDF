@@ -4,7 +4,7 @@ import { Allotment } from 'allotment';
 import 'allotment/dist/style.css';
 
 import { TitleBar } from './TitleBar';
-import { TabBar } from './TabBar';
+
 import { StatusBar } from './StatusBar';
 import { PdfViewer } from '../pdf/PdfViewer';
 import { HoverTooltip } from '../pdf/HoverTooltip';
@@ -81,7 +81,6 @@ export function AppShell() {
   return (
     <div className="flex flex-col h-full">
       <TitleBar onOpenFile={handleOpenFile} onOpenSettings={() => setSettingsOpen(true)} />
-      <TabBar />
 
       <div className="flex-1 overflow-hidden relative">
         {searchOpen && <SearchBar />}
