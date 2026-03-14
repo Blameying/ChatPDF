@@ -1,4 +1,8 @@
 import Markdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import remarkGfm from 'remark-gfm';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 import type { ChatMsg } from '../../stores/chatStore';
 
 interface ChatMessageProps {
@@ -25,8 +29,13 @@ export function ChatMessage({ message }: ChatMessageProps) {
             {message.quotedText}
           </div>
         )}
-        <div className="prose prose-sm max-w-none [&_p]:m-0 [&_p]:mb-1 [&_pre]:text-xs [&_code]:text-xs">
-          <Markdown>{message.content}</Markdown>
+        <div className="chat-markdown">
+          <Markdown
+            remarkPlugins={[remarkMath, remarkGfm]}
+            rehypePlugins={[rehypeKatex]}
+          >
+            {message.content}
+          </Markdown>
         </div>
       </div>
     </div>

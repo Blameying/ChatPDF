@@ -24,10 +24,17 @@ pub fn run() {
                     .expect("Failed to initialize app state");
                 app.manage(Arc::new(state));
             });
+
+            // Open devtools in all builds for debugging
+            if let Some(window) = app.get_webview_window("main") {
+                window.open_devtools();
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::files::open_file,
+            commands::files::read_file_base64,
             commands::files::get_recent_files,
             commands::files::export_annotations_markdown,
             commands::files::export_words_anki,
@@ -47,6 +54,7 @@ pub fn run() {
             commands::translate::translate_word,
             commands::translate::translate_batch,
             commands::settings::get_config,
+            commands::settings::get_config_json,
             commands::settings::get_config_schema,
             commands::settings::update_config,
             commands::settings::reset_config,

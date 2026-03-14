@@ -1,6 +1,10 @@
 import { useEffect, useRef } from 'react';
 import type { PDFPageProxy } from 'pdfjs-dist';
 import { useTextLayer } from '../../hooks/useTextLayer';
+import { AnnotationOverlay } from './AnnotationOverlay';
+import { WordOverlay } from './WordOverlay';
+import { useAnnotations } from '../../hooks/useAnnotations';
+import { useTabStore } from '../../stores/tabStore';
 
 interface PdfPageProps {
   page: PDFPageProxy;
@@ -12,6 +16,9 @@ export function PdfPage({ page, scale, pageNumber }: PdfPageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const renderTaskRef = useRef<ReturnType<PDFPageProxy['render']> | null>(null);
+
+  const activeTab = useTabStore(s => s.tabs.find(t => t.id === s.activeTabId));
+  const { annotations } = useAnnotations(activeTab?.hash ?? null);
 
   useTextLayer(page, containerRef, scale);
 
@@ -69,6 +76,8 @@ export function PdfPage({ page, scale, pageNumber }: PdfPageProps) {
       data-page-number={pageNumber}
     >
       <canvas ref={canvasRef} />
+      <AnnotationOverlay annotations={annotations} pageNumber={pageNumber} />
+      <WordOverlay pageNumber={pageNumber} containerRef={containerRef} scale={scale} />
     </div>
   );
 }

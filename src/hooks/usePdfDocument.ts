@@ -1,11 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
+import { invoke } from '@tauri-apps/api/core';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.mjs',
-  import.meta.url,
-).toString();
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.mjs';
+
+const docCache = new Map<string, PDFDocumentProxy>();
+
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
 
 export function usePdfDocument(filePath: string | null) {
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
@@ -14,7 +23,17 @@ export function usePdfDocument(filePath: string | null) {
   const prevPath = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!filePath || filePath === prevPath.current) return;
+    if (!filePath) return;
+
+    const cached = docCache.get(filePath);
+    if (cached) {
+      setDoc(cached);
+      setLoading(false);
+      prevPath.current = filePath;
+      return;
+    }
+
+    if (filePath === prevPath.current) return;
     prevPath.current = filePath;
 
     let cancelled = false;
@@ -23,38 +42,18 @@ export function usePdfDocument(filePath: string | null) {
 
     const loadDoc = async () => {
       try {
-        // For Tauri, we need to read the file as binary through the asset protocol
-        // or convert the path. pdfjs can load from URL or ArrayBuffer.
-        // Use fetch with Tauri's asset protocol or load directly.
-        const response = await fetch(`https://asset.localhost/${encodeURIComponent(filePath)}`);
-        if (!response.ok) {
-          // Fallback: try loading directly (works in dev with CORS disabled)
-          const pdfDoc = await pdfjsLib.getDocument(filePath).promise;
-          if (!cancelled) {
-            setDoc(pdfDoc);
-            setLoading(false);
-          }
-          return;
-        }
-        const data = await response.arrayBuffer();
+        const b64 = await invoke<string>('read_file_base64', { path: filePath });
+        const data = base64ToUint8Array(b64);
         const pdfDoc = await pdfjsLib.getDocument({ data }).promise;
         if (!cancelled) {
+          docCache.set(filePath, pdfDoc);
           setDoc(pdfDoc);
           setLoading(false);
         }
       } catch (err) {
         if (!cancelled) {
-          // Try direct file path as last resort
-          try {
-            const pdfDoc = await pdfjsLib.getDocument(filePath).promise;
-            if (!cancelled) {
-              setDoc(pdfDoc);
-              setLoading(false);
-            }
-          } catch (err2) {
-            setError(String(err2));
-            setLoading(false);
-          }
+          setError(String(err));
+          setLoading(false);
         }
       }
     };

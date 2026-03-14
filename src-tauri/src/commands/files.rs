@@ -34,6 +34,13 @@ pub async fn open_file(path: String, state: tauri::State<'_, Arc<AppState>>) -> 
     Ok(FileInfo { path, hash, name })
 }
 
+#[tauri::command]
+pub async fn read_file_base64(path: String) -> Result<String, String> {
+    use base64::Engine;
+    let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+    Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
+}
+
 #[derive(Serialize)]
 pub struct RecentFile {
     pub path: String,

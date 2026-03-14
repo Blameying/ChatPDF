@@ -1,6 +1,7 @@
 use crate::state::AppState;
 use serde::Serialize;
 use std::sync::Arc;
+use tauri::Emitter;
 
 #[derive(Serialize)]
 pub struct Annotation {
@@ -23,6 +24,7 @@ pub async fn add_annotation(
     color: Option<String>,
     position_data: String,
     state: tauri::State<'_, Arc<AppState>>,
+    app_handle: tauri::AppHandle,
 ) -> Result<Annotation, String> {
     let color = color.unwrap_or_else(|| "#FFEB3B".into());
 
@@ -40,6 +42,8 @@ pub async fn add_annotation(
     .map_err(|e| e.to_string())?
     .last_insert_rowid();
 
+    let _ = app_handle.emit("annotations:changed", ());
+
     Ok(Annotation {
         id, document_hash, page, r#type, content, color, position_data,
         created_at: chrono_now(),
@@ -47,12 +51,18 @@ pub async fn add_annotation(
 }
 
 #[tauri::command]
-pub async fn remove_annotation(id: i64, state: tauri::State<'_, Arc<AppState>>) -> Result<(), String> {
+pub async fn remove_annotation(
+    id: i64,
+    state: tauri::State<'_, Arc<AppState>>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
     sqlx::query("DELETE FROM annotations WHERE id = ?")
         .bind(id)
         .execute(&state.db)
         .await
         .map_err(|e| e.to_string())?;
+
+    let _ = app_handle.emit("annotations:changed", ());
     Ok(())
 }
 

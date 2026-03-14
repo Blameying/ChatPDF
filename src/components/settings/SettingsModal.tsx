@@ -158,7 +158,7 @@ function TranslationSettings({ config, update }: { config: AppConfig; update: Up
   return (
     <div>
       <SettingRow label="Provider">
-        <SettingSelect value={config.translation.provider} options={['llm', 'deepl', 'google']}
+        <SettingSelect value={config.translation.provider} options={['mymemory', 'llm', 'deepl']}
           onChange={v => update('translation', 'provider', v)} />
       </SettingRow>
       <SettingRow label="Target language">

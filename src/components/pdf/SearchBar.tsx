@@ -25,7 +25,7 @@ export function SearchBar() {
 
     clearHighlights();
 
-    const textSpans = document.querySelectorAll('.word-span');
+    const textSpans = document.querySelectorAll('.textLayer span');
     let count = 0;
     const matches: Element[] = [];
 

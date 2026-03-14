@@ -49,18 +49,16 @@ html, body, #root {
   color: var(--text-primary);
 }
 
-/* PDF text layer word spans */
-.word-span {
-  cursor: pointer;
+/* PDF text layer - native pdfjs spans must be selectable */
+.pdf-text-span {
+  cursor: text;
+}
+
+/* Word highlight overlay spans (injected by word highlighter) */
+.word-highlight-overlay {
+  position: absolute;
+  pointer-events: none;
   border-radius: 2px;
-  transition: background-color 0.15s;
-}
-
-.word-span:hover {
-  background-color: rgba(59, 130, 246, 0.15);
-}
-
-.word-difficult {
   background-color: var(--color-word-highlight);
   border-bottom: 1px solid var(--color-word-underline);
 }
@@ -92,24 +90,75 @@ html, body, #root {
   display: block;
 }
 
-.pdf-text-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  overflow: hidden;
-  line-height: 1;
+/* pdfjs v5 TextLayer — critical: define --total-scale-factor since we don't use .pdfViewer .page */
+.pdf-page-container {
+  --user-unit: 1;
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
+  --total-scale-factor: calc(var(--scale-factor) * var(--user-unit));
 }
 
-.pdf-text-layer > span {
+/* Canvas must not intercept pointer events — text layer sits on top */
+.pdf-page-container canvas {
+  pointer-events: none;
+}
+
+.textLayer {
+  position: absolute;
+  text-align: initial;
+  inset: 0;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: CanvasText;
+  z-index: 2;
+
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+
+.textLayer :is(span, br) {
+  color: transparent;
   position: absolute;
   white-space: pre;
+  cursor: text;
   transform-origin: 0% 0%;
-  color: transparent;
 }
 
-.pdf-text-layer ::selection {
+.textLayer > :not(.markedContent),
+.textLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+
+.textLayer .markedContent {
+  display: contents;
+}
+
+.textLayer span[role="img"] {
+  user-select: none;
+  cursor: default;
+}
+
+.textLayer .endOfContent {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  cursor: default;
+  user-select: none;
+}
+
+.textLayer ::selection {
   background: rgba(59, 130, 246, 0.3);
 }
 
@@ -145,4 +194,80 @@ html, body, #root {
 
 .tooltip-enter {
   animation: tooltip-in 0.15s ease-out;
+}
+
+/* Chat markdown rendering */
+.chat-markdown {
+  line-height: 1.5;
+}
+.chat-markdown p {
+  margin: 0 0 0.5em;
+}
+.chat-markdown p:last-child {
+  margin-bottom: 0;
+}
+.chat-markdown h1, .chat-markdown h2, .chat-markdown h3 {
+  font-weight: 600;
+  margin: 0.75em 0 0.25em;
+}
+.chat-markdown h1 { font-size: 1.2em; }
+.chat-markdown h2 { font-size: 1.1em; }
+.chat-markdown h3 { font-size: 1em; }
+.chat-markdown ul, .chat-markdown ol {
+  margin: 0.25em 0;
+  padding-left: 1.5em;
+}
+.chat-markdown li {
+  margin: 0.1em 0;
+}
+.chat-markdown code {
+  font-size: 0.85em;
+  padding: 0.15em 0.3em;
+  border-radius: 3px;
+  background-color: var(--bg-tertiary);
+}
+.chat-markdown pre {
+  margin: 0.5em 0;
+  padding: 0.5em;
+  border-radius: 6px;
+  overflow-x: auto;
+  background-color: var(--bg-tertiary) !important;
+}
+.chat-markdown pre code {
+  padding: 0;
+  background: none;
+}
+.chat-markdown blockquote {
+  margin: 0.5em 0;
+  padding: 0.25em 0.75em;
+  border-left: 3px solid var(--border-color);
+  color: var(--text-secondary);
+}
+.chat-markdown table {
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  width: 100%;
+  font-size: 0.85em;
+}
+.chat-markdown th, .chat-markdown td {
+  border: 1px solid var(--border-color);
+  padding: 0.3em 0.5em;
+  text-align: left;
+}
+.chat-markdown th {
+  font-weight: 600;
+  background-color: var(--bg-tertiary);
+}
+.chat-markdown a {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+/* KaTeX overflows */
+.chat-markdown .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: 0.5em 0;
+}
+.chat-markdown .katex {
+  font-size: 1em;
 }

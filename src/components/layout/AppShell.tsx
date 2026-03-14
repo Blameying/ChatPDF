@@ -8,6 +8,7 @@ import { TabBar } from './TabBar';
 import { StatusBar } from './StatusBar';
 import { PdfViewer } from '../pdf/PdfViewer';
 import { HoverTooltip } from '../pdf/HoverTooltip';
+import { SelectionToolbar } from '../pdf/SelectionToolbar';
 import { SearchBar } from '../pdf/SearchBar';
 import { OutlineSidebar } from '../sidebar/OutlineSidebar';
 import { WordListSidebar } from '../sidebar/WordListSidebar';
@@ -29,21 +30,22 @@ export function AppShell() {
   useTheme();
   useKeyboardShortcuts();
   useDifficultWords();
-  const { hover, dismiss } = useHoverTranslation();
+  const { hover, dismiss, onTooltipEnter, onTooltipLeave } = useHoverTranslation();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const { addTab } = useTabStore();
   const activeTab = useTabStore(s => s.tabs.find(t => t.id === s.activeTabId));
   const { sidebarPanel, chatPanelOpen, zenMode, searchOpen } = useUIStore();
 
-  // Initialize settings listener
+  // Initialize settings: load config from Rust, then listen for changes
   useEffect(() => {
-    const init = async () => {
-      const unlisten = await useSettingsStore.getState().initListener();
-      return unlisten;
-    };
     let cleanup: (() => void) | undefined;
-    init().then(u => { cleanup = u; });
+    const init = async () => {
+      await useSettingsStore.getState().loadConfig();
+      const unlisten = await useSettingsStore.getState().initListener();
+      cleanup = unlisten;
+    };
+    init();
     return () => { cleanup?.(); };
   }, []);
 
@@ -111,7 +113,8 @@ export function AppShell() {
           )}
         </Allotment>
 
-        <HoverTooltip hover={hover} onDismiss={dismiss} />
+        <HoverTooltip hover={hover} onDismiss={dismiss} onMouseEnter={onTooltipEnter} onMouseLeave={onTooltipLeave} />
+        <SelectionToolbar />
       </div>
 
       <StatusBar />

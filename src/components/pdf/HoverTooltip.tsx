@@ -12,9 +12,11 @@ interface HoverState {
 interface HoverTooltipProps {
   hover: HoverState;
   onDismiss: () => void;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
 }
 
-export function HoverTooltip({ hover, onDismiss }: HoverTooltipProps) {
+export function HoverTooltip({ hover, onDismiss, onMouseEnter, onMouseLeave }: HoverTooltipProps) {
   const { addWord, isKnownWord } = useWordListStore();
 
   if (!hover.visible) return null;
@@ -34,6 +36,8 @@ export function HoverTooltip({ hover, onDismiss }: HoverTooltipProps) {
         top: hover.y,
         transform: 'translate(-50%, -100%)',
       }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
       <div
         className="rounded-lg shadow-lg px-3 py-2 text-sm max-w-xs"
@@ -44,13 +48,13 @@ export function HoverTooltip({ hover, onDismiss }: HoverTooltipProps) {
         }}
       >
         <div className="flex items-start gap-2">
-          <div>
+          <div className="min-w-0">
             <div className="font-medium">{hover.word}</div>
             <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
               {hover.translation}
             </div>
           </div>
-          {!isKnown && (
+          {!isKnown && hover.translation !== 'translating...' && (
             <button
               onClick={handleAddWord}
               className="shrink-0 p-0.5 rounded hover:opacity-60"

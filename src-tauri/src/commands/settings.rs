@@ -10,6 +10,12 @@ pub async fn get_config(state: tauri::State<'_, Arc<AppState>>) -> Result<String
 }
 
 #[tauri::command]
+pub async fn get_config_json(state: tauri::State<'_, Arc<AppState>>) -> Result<String, String> {
+    let config = state.config.lock().map_err(|e| e.to_string())?;
+    serde_json::to_string(&*config).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn get_config_schema() -> Result<String, String> {
     Ok(schema::get_config_schema().to_string())
 }

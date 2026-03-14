@@ -7,7 +7,7 @@ fn default_theme() -> String { "light".into() }
 fn default_language() -> String { "zh".into() }
 fn default_hover_delay() -> u32 { 2000 }
 fn default_false() -> bool { false }
-fn default_provider() -> String { "llm".into() }
+fn default_provider() -> String { "mymemory".into() }
 fn default_target_lang() -> String { "zh".into() }
 fn default_source_lang() -> String { "en".into() }
 fn default_base_url() -> String { "https://api.openai.com/v1".into() }
@@ -222,8 +222,8 @@ impl AppConfig {
                 self.general.zen_mode = value.parse().map_err(|_| "must be true or false")?;
             }
             ("translation", "provider") => {
-                if !["llm", "deepl", "google"].contains(&value) {
-                    return Err("provider must be: llm, deepl, or google".into());
+                if !["llm", "deepl", "mymemory"].contains(&value) {
+                    return Err("provider must be: llm, deepl, or mymemory".into());
                 }
                 self.translation.provider = value.into();
             }

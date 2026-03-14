@@ -10,6 +10,9 @@ import { useTabStore } from '../../stores/tabStore';
 import { extractContextPages } from '../../services/pdfTextExtractor';
 import { saveChatHistory, getChatHistory } from '../../services/tauriCommands';
 import Markdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import remarkGfm from 'remark-gfm';
+import rehypeKatex from 'rehype-katex';
 
 interface ChatPanelProps {
   documentHash: string | null;
@@ -112,8 +115,8 @@ export function ChatPanel({ documentHash }: ChatPanelProps) {
               className="max-w-[85%] rounded-lg px-3 py-2 text-sm"
               style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
             >
-              <div className="prose prose-sm max-w-none [&_p]:m-0">
-                <Markdown>{streamingContent}</Markdown>
+              <div className="chat-markdown">
+                <Markdown remarkPlugins={[remarkMath, remarkGfm]} rehypePlugins={[rehypeKatex]}>{streamingContent}</Markdown>
               </div>
               <span className="inline-block w-1.5 h-4 ml-0.5 animate-pulse" style={{ backgroundColor: 'var(--text-secondary)' }} />
             </div>

@@ -1,53 +1,86 @@
-export function splitTextIntoWords(textLayerDiv: HTMLElement, wordSet: Set<string>): void {
-  const spans = Array.from(textLayerDiv.querySelectorAll('span:not(.word-span)'));
+// Word highlight overlay for difficult words
+// This does NOT modify the pdfjs text layer - it creates a separate overlay
 
-  for (const span of spans) {
+export function createWordHighlightOverlay(
+  textLayerDiv: HTMLElement,
+  wordSet: Set<string>,
+): HTMLDivElement {
+  const overlay = document.createElement('div');
+  overlay.className = 'word-highlight-container';
+  overlay.style.position = 'absolute';
+  overlay.style.top = '0';
+  overlay.style.left = '0';
+  overlay.style.width = '100%';
+  overlay.style.height = '100%';
+  overlay.style.pointerEvents = 'none';
+
+  if (wordSet.size === 0) return overlay;
+
+  const spans = textLayerDiv.querySelectorAll('span');
+  spans.forEach(span => {
     const text = span.textContent ?? '';
-    if (!text.trim()) continue;
+    if (!text.trim()) return;
 
-    // Split by word boundaries (spaces, punctuation)
-    const parts = text.split(/(\s+)/);
-    if (parts.length <= 1 && !/\s/.test(text)) {
-      // Single word, just mark the span
-      span.classList.add('word-span');
-      const lower = text.replace(/[^\w'-]/g, '').toLowerCase();
-      if (lower && wordSet.has(lower)) {
-        span.classList.add('word-difficult');
-      }
-      continue;
-    }
+    // Find difficult words within this span's text
+    const words = text.split(/(\s+)/);
+    let charOffset = 0;
 
-    const fragment = document.createDocumentFragment();
-    for (const part of parts) {
-      if (/^\s+$/.test(part)) {
-        fragment.appendChild(document.createTextNode(part));
+    for (const part of words) {
+      if (/^\s*$/.test(part)) {
+        charOffset += part.length;
         continue;
       }
-      const wordSpan = document.createElement('span');
-      wordSpan.className = 'word-span';
-      wordSpan.textContent = part;
 
-      const cleanWord = part.replace(/[^\w'-]/g, '').toLowerCase();
-      if (cleanWord && wordSet.has(cleanWord)) {
-        wordSpan.classList.add('word-difficult');
+      const clean = part.replace(/[^\w'-]/g, '').toLowerCase();
+      if (clean && wordSet.has(clean)) {
+        // Create a highlight rect based on the span's position
+        // Use Range to get precise bounding rect
+        const textNode = span.firstChild;
+        if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+          try {
+            const range = document.createRange();
+            const start = Math.min(charOffset, textNode.textContent!.length);
+            const end = Math.min(charOffset + part.length, textNode.textContent!.length);
+            range.setStart(textNode, start);
+            range.setEnd(textNode, end);
+
+            const rects = range.getClientRects();
+            const containerRect = textLayerDiv.getBoundingClientRect();
+
+            for (const rect of rects) {
+              const highlight = document.createElement('div');
+              highlight.className = 'word-highlight-overlay';
+              highlight.style.left = `${rect.left - containerRect.left}px`;
+              highlight.style.top = `${rect.top - containerRect.top}px`;
+              highlight.style.width = `${rect.width}px`;
+              highlight.style.height = `${rect.height}px`;
+              overlay.appendChild(highlight);
+            }
+
+            range.detach();
+          } catch {
+            // Offset out of bounds, skip
+          }
+        }
       }
-
-      fragment.appendChild(wordSpan);
+      charOffset += part.length;
     }
+  });
 
-    span.textContent = '';
-    span.appendChild(fragment);
-  }
+  return overlay;
 }
 
-export function updateWordHighlights(textLayerDiv: HTMLElement, wordSet: Set<string>): void {
-  const wordSpans = textLayerDiv.querySelectorAll('.word-span');
-  for (const span of wordSpans) {
-    const text = (span.textContent ?? '').replace(/[^\w'-]/g, '').toLowerCase();
-    if (text && wordSet.has(text)) {
-      span.classList.add('word-difficult');
-    } else {
-      span.classList.remove('word-difficult');
-    }
-  }
+export function updateWordHighlights(
+  container: HTMLElement,
+  textLayerDiv: HTMLElement | null,
+  wordSet: Set<string>,
+): void {
+  // Remove old overlay
+  const old = container.querySelector('.word-highlight-container');
+  if (old) old.remove();
+
+  if (!textLayerDiv || wordSet.size === 0) return;
+
+  const overlay = createWordHighlightOverlay(textLayerDiv, wordSet);
+  container.appendChild(overlay);
 }

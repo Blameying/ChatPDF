@@ -22,3 +22,21 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Rust build artifacts
+src-tauri/target/
+
+# Tauri generated bundles
+src-tauri/gen/
+
+# PDF worker copied to public (generated at build time)
+public/pdf.worker.mjs
+
+# Config with sensitive data (API keys etc)
+config.toml
+*.secret
+.env
+.env.*
+
+# Claude Code
+.claude/

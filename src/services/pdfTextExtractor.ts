@@ -2,11 +2,22 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 export async function extractPageText(doc: PDFDocumentProxy, pageNum: number): Promise<string> {
   const page = await doc.getPage(pageNum);
-  const content = await page.getTextContent();
-  return content.items
-    .filter((item): item is { str: string } & typeof item => 'str' in item)
-    .map(item => item.str)
-    .join(' ');
+  // Use streamTextContent + reader to avoid getTextContent's for-await
+  // which WKWebView doesn't support
+  const stream = page.streamTextContent();
+  const reader = stream.getReader();
+  const texts: string[] = [];
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    if (value?.items) {
+      for (const item of value.items) {
+        if ('str' in item) texts.push(item.str);
+      }
+    }
+  }
+  return texts.join(' ');
 }
 
 export async function extractContextPages(

@@ -24,7 +24,7 @@ export function SelectionToolbar() {
   const [noteText, setNoteText] = useState('');
 
   const activeTab = useTabStore(s => s.tabs.find(t => t.id === s.activeTabId));
-  const { addAnnotation } = useAnnotations(activeTab?.hash ?? null);
+  const { addAnnotation, removeAnnotation, annotations } = useAnnotations(activeTab?.hash ?? null);
   const addMessage = useChatStore(s => s.addMessage);
   const { setChatPanelOpen } = useUIStore();
 
@@ -109,6 +109,18 @@ export function SelectionToolbar() {
 
   const handleHighlight = async (color: string) => {
     if (!activeTab || sel.page === 0) return;
+
+    // If this exact text is already highlighted on this page, remove it instead
+    const existing = annotations.find(
+      a => a.page === sel.page && a.type === 'highlight' && a.content === sel.text,
+    );
+    if (existing) {
+      await removeAnnotation(existing.id);
+      window.getSelection()?.removeAllRanges();
+      setSel(s => ({ ...s, visible: false }));
+      return;
+    }
+
     const posData = serializePosition({ page: sel.page, rects: sel.rects, text: sel.text });
     await addAnnotation(sel.page, 'highlight', sel.text, posData, color);
     window.getSelection()?.removeAllRanges();
